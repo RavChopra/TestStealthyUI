@@ -1,0 +1,65 @@
+# =========================
+# macOS + Xcode + SwiftUI
+# =========================
+
+# Build artifacts
+build/
+DerivedData/
+
+# Xcode user data
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Old Xcode compatibility
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# iOS packaging
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.dSYM.tar.gz
+
+# Environment + editor configs
+.env
+.env.*
+.vscode/
+.idea/
+
+# Misc
+*.swp
+*.swo
+*.tmp
+*.log
