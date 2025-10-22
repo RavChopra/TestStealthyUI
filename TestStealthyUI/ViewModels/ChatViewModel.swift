@@ -37,12 +37,14 @@ class ChatViewModel: ObservableObject {
     @Published var showDeleteConfirm: Bool = false
     @Published var deleteTargetID: Conversation.ID?
 
-    // Pairing state (ephemeral)
+    // Pairing state (ephemeral) - macOS only
+    #if os(macOS)
     @Published var showPairingSheet: Bool = false
     @Published var pairingToken: UUID = UUID()
     @Published var pairingTokenExpiresAt: Date = Date().addingTimeInterval(90)
     @Published var pairingDeepLink: URL?
     @Published var pairingRegenerateDisabledUntil: Date = .distantPast
+    #endif
 
     // MARK: - Draft Conversation State
 
@@ -60,7 +62,9 @@ class ChatViewModel: ObservableObject {
     /// Current draft conversation (if any). Not persisted until first message is sent.
     @Published var draftConversation: DraftConversation? = nil
 
+    #if os(macOS)
     private let pairingService: PairingService = DefaultPairingService()
+    #endif
 
     var selectedIndex: Int? {
         guard let selectedID = selectedID else { return nil }
@@ -327,8 +331,9 @@ class ChatViewModel: ObservableObject {
         saveConversations()
     }
 
-    // MARK: - Pairing
+    // MARK: - Pairing (macOS only)
 
+    #if os(macOS)
     func openPairingSheet() {
         setNewToken()
         showPairingSheet = true
@@ -364,6 +369,7 @@ class ChatViewModel: ObservableObject {
             pairingDeepLink = URL(string: "stealthyai://pair/\(pairingToken.uuidString)")
         }
     }
+    #endif
 
     // MARK: - Export/Import
 

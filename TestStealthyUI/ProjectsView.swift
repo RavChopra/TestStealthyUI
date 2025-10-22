@@ -161,65 +161,44 @@ struct ProjectsView: View {
     }
 
     private var createProjectSheet: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text(editingProjectID == nil ? "Create a personal project" : "Edit project")
-                .font(.largeTitle).bold()
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("What are you working on?")
-                    .font(.headline)
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(.secondary.opacity(0.4))
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.secondary.opacity(0.08))
-                        )
-                    TextField("", text: $draftTitle, prompt: Text("Name your project"))
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
+        ProjectEditorView(
+            modeTitle: editingProjectID == nil ? "Create a personal project" : "Edit project",
+            primaryButtonTitle: editingProjectID == nil ? "Create project" : "Save changes",
+            initialTitle: draftTitle,
+            initialDescription: draftDescription,
+            initialTags: {
+                if let editID = editingProjectID, let idx = projects.firstIndex(where: { $0.id == editID }) {
+                    return projects[idx].tags
                 }
-                .frame(height: 44)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("What are you trying to achieve?")
-                    .font(.headline)
-                ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(.secondary.opacity(0.4))
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.secondary.opacity(0.08))
-                        )
-                    TextEditor(text: $draftDescription)
-                        .scrollContentBackground(.hidden)
-                        .padding(.horizontal, 10)
-                        .padding(.top, 14)
-                        .padding(.bottom, 10)
-                        .background(Color.clear)
-                    if draftDescription.isEmpty {
-                        Text("Describe your project, goals, subject, etc...")
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 14)
+                return []
+            }(),
+            initialIconSymbol: {
+                if let editID = editingProjectID, let idx = projects.firstIndex(where: { $0.id == editID }) {
+                    return projects[idx].iconSymbol ?? "folder"
+                }
+                return "folder"
+            }(),
+            initialIconColor: {
+                if let editID = editingProjectID, let idx = projects.firstIndex(where: { $0.id == editID }) {
+                    return projects[idx].iconColor
+                }
+                return nil
+            }(),
+            onCancel: { cancelCreate() },
+            onSave: { title, desc, tags, iconSymbol, iconColor in
+                if let editID = editingProjectID {
+                    appStore.updateProject(id: editID, title: title, description: desc, tags: tags, iconSymbol: iconSymbol, iconColor: iconColor)
+                    showingCreate = false
+                } else {
+                    let newID = appStore.createProject(title: title, description: desc, iconSymbol: iconSymbol ?? "folder", iconColor: iconColor)
+                    if let idx = projects.firstIndex(where: { $0.id == newID }) {
+                        projects[idx].tags = Array(tags.prefix(10))
                     }
+                    showingCreate = false
+                    selection = .project(newID)
                 }
-                .frame(minHeight: 140)
             }
-
-            HStack {
-                Spacer()
-                Button("Cancel") { cancelCreate() }
-                Button(editingProjectID == nil ? "Create project" : "Save changes") { saveProject() }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.return, modifiers: [])
-                    .disabled(draftTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: 720)
+        )
     }
 
     // MARK: List
@@ -256,11 +235,32 @@ struct ProjectsView: View {
                     selection = .project(project.id)
                 } label: {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(project.title)
-                            .font(.title3).bold()
+                        HStack(spacing: 8) {
+                            if let symbol = project.iconSymbol {
+                                Image(systemName: symbol)
+                                    .foregroundStyle((project.iconColor ?? .gray).color)
+                                    .imageScale(.medium)
+                            }
+                            Text(project.title)
+                                .font(.title3).bold()
+                        }
                         if !project.description.isEmpty {
                             Text(project.description)
                                 .foregroundStyle(.secondary)
+                        }
+                        if !project.tags.isEmpty {
+                            HStack(spacing: 6) {
+                                ForEach(project.tags.prefix(10), id: \.self) { tag in
+                                    Text(tag)
+                                        .font(.caption)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            Capsule(style: .continuous)
+                                                .fill(Color.secondary.opacity(0.15))
+                                        )
+                                }
+                            }
                         }
                         Text("Updated \(relativeDate(project.updatedAt))")
                             .font(.footnote)
@@ -286,7 +286,7 @@ struct ProjectsView: View {
                                     toggleFlag(project)
                                 }
                             } label: {
-                                Label(project.flaggedAt == nil ? "Flag" : "Unflag", systemImage: project.flaggedAt == nil ? "flag.fill" : "flag")
+                                Label(project.flaggedAt == nil ? "Star" : "Unstar", systemImage: project.flaggedAt == nil ? "star.fill" : "star")
                             }
                             Divider()
                             Button { editProject(project) } label: { Label("Edit", systemImage: "pencil") }
@@ -320,7 +320,7 @@ struct ProjectsView: View {
                     Button {
                         toggleFlag(project)
                     } label: {
-                        Label(project.flaggedAt == nil ? "Flag" : "Unflag", systemImage: project.flaggedAt == nil ? "flag.fill" : "flag")
+                        Label(project.flaggedAt == nil ? "Star" : "Unstar", systemImage: project.flaggedAt == nil ? "star.fill" : "star")
                     }
                     Divider()
                     Button(role: .destructive) {
@@ -369,16 +369,6 @@ struct ProjectsView: View {
 
     private func cancelCreate() {
         showingCreate = false
-    }
-
-    private func saveProject() {
-        let title = draftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let desc = draftDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return }
-        let newID = appStore.createProject(title: title, description: desc)
-        showingCreate = false
-        // Navigate into the newly created project
-        selection = .project(newID)
     }
 }
 

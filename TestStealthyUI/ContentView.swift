@@ -219,67 +219,37 @@ struct ContentView: View {
 
     // MARK: - Project Edit Sheet
     private var projectEditSheet: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Edit project").font(.largeTitle).bold()
-            VStack(alignment: .leading, spacing: 8) {
-                Text("What are you working on?").font(.headline)
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(.secondary.opacity(0.4))
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.secondary.opacity(0.08))
-                        )
-                    TextField("", text: $sidebarEditDraftTitle, prompt: Text("Name your project"))
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
+        ProjectEditorView(
+            modeTitle: "Edit project",
+            primaryButtonTitle: "Save changes",
+            initialTitle: sidebarEditDraftTitle,
+            initialDescription: sidebarEditDraftDescription,
+            initialTags: {
+                if let id = sidebarEditingProjectID, let idx = appStore.projects.firstIndex(where: { $0.id == id }) {
+                    return appStore.projects[idx].tags
                 }
-                .frame(height: 44)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                Text("What are you trying to achieve?").font(.headline)
-                ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(.secondary.opacity(0.4))
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.secondary.opacity(0.08))
-                        )
-                    TextEditor(text: $sidebarEditDraftDescription)
-                        .scrollContentBackground(.hidden)
-                        .padding(.horizontal, 10)
-                        .padding(.top, 14)
-                        .padding(.bottom, 10)
-                        .background(Color.clear)
-                    if sidebarEditDraftDescription.isEmpty {
-                        Text("Describe your project, goals, subject, etc...")
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 14)
-                    }
+                return []
+            }(),
+            initialIconSymbol: {
+                if let id = sidebarEditingProjectID, let idx = appStore.projects.firstIndex(where: { $0.id == id }) {
+                    return appStore.projects[idx].iconSymbol
                 }
-                .frame(minHeight: 140)
-            }
-            HStack {
-                Spacer()
-                Button("Cancel") { showingSidebarEdit = false }
-                Button("Save changes") {
-                    if let id = sidebarEditingProjectID {
-                        let title = sidebarEditDraftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let desc = sidebarEditDraftDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !title.isEmpty else { return }
-                        appStore.updateProject(id: id, title: title, description: desc)
-                    }
-                    showingSidebarEdit = false
+                return "folder"
+            }(),
+            initialIconColor: {
+                if let id = sidebarEditingProjectID, let idx = appStore.projects.firstIndex(where: { $0.id == id }) {
+                    return appStore.projects[idx].iconColor
                 }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.return, modifiers: [])
-                .disabled(sidebarEditDraftTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                return nil
+            }(),
+            onCancel: { showingSidebarEdit = false },
+            onSave: { title, desc, tags, iconSymbol, iconColor in
+                if let id = sidebarEditingProjectID {
+                    appStore.updateProject(id: id, title: title, description: desc, tags: tags, iconSymbol: iconSymbol, iconColor: iconColor)
+                }
+                showingSidebarEdit = false
             }
-        }
-        .padding(24)
-        .frame(maxWidth: 720)
+        )
     }
 
     // MARK: - Import Confirmation Sheet

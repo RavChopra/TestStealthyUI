@@ -4,87 +4,79 @@ struct IconPickerSheet: View {
     @Binding var selectedSymbol: String?
     @Binding var selectedColor: FlagColor?
     @Binding var isPresented: Bool
-    @State private var search: String = ""
 
     // Categorized symbol sets (validated SF Symbols)
     private let categories: [(title: String, symbols: [String])] = [
         ("People", [
-            "person",
+            // Prefer filled where available
             "person.fill",
-            "person.2",
             "person.2.fill",
-            "person.crop.circle",
             "person.crop.circle.fill",
-            "figure.standing",
-            "figure.standing.dress",
-            "eye",
+            // No filled variants for these; keep base
             "eye.fill",
-            "eye.circle",
+            "eye.circle", // circle has its own fill variant but we already include eye.fill for contrast
             "eyes",
-            "hand.raised",
             "hand.raised.fill",
-            "hand.thumbsup",
-            "hand.thumbsdown",
-            "hand.point.left",
-            "hand.point.right",
-            "hand.point.up",
-            "hand.point.down"
+            "hand.thumbsup.fill",
+            "hand.thumbsdown.fill",
+            "hand.point.left.fill",
+            "hand.point.right.fill",
+            "hand.point.up.fill",
+            "hand.point.down.fill"
         ]),
         ("Animals & Nature", [
-            "leaf",
             "leaf.fill",
-            "tortoise",
-            "hare",
-            "pawprint",
+            "tortoise",    // no fill
+            "hare",        // no fill
             "pawprint.fill",
-            "ant",
-            "ladybug"
+            "ant",         // no fill
+            "ladybug"      // no fill
         ]),
         ("Food & Drink", [
-            "fork.knife",
-            "cup.and.saucer",
-            "takeoutbag.and.cup.and.straw"
+            "fork.knife",                  // no fill
+            "cup.and.saucer",             // no fill
+            "takeoutbag.and.cup.and.straw" // no fill (as of current SF Symbols)
         ]),
         ("Activity", [
-            "figure.walk",
-            "figure.run",
-            "dumbbell",
-            "sportscourt",
-            "trophy"
+            "figure.walk", // no fill
+            "figure.run",  // no fill
+            "dumbbell",    // no fill
+            "sportscourt", // no fill
+            "trophy"       // no fill
         ]),
         ("Travel & Places", [
-            "airplane",
-            "car",
-            "bus",
-            "tram",
-            "ferry",
-            "sailboat",
-            "mappin",
-            "building.2"
+            "airplane",         // no direct fill
+            "car.fill",
+            "bus.fill",
+            "tram.fill",
+            "ferry.fill",
+            "sailboat.fill",
+            "mappin",          // no fill
+            "building.2"       // may not have .fill; keep base
         ]),
         ("Objects", [
-            "hammer",
-            "wrench",
-            "paintbrush",
-            "scissors",
-            "paperclip",
-            "book",
-            "bookmark",
-            "gear",
-            "lightbulb",
-            "camera",
-            "mic"
+            "hammer.fill",
+            "wrench.fill",
+            "paintbrush.fill",
+            "scissors",    // no fill
+            "paperclip",   // no fill
+            "book.fill",
+            "bookmark.fill",
+            "gearshape",   // prefer gearshape over gear; gearshape.fill exists but keep base for compatibility
+            "lightbulb.fill",
+            "camera.fill",
+            "mic.fill"
         ]),
         ("Symbols", [
-            "star",
-            "heart",
-            "bolt",
-            "flame",
-            "sun.max",
-            "moon",
-            "cloud",
-            "checkmark.seal",
-            "xmark.seal"
+            "star.fill",
+            "heart.fill",
+            "bolt.fill",
+            "flame.fill",
+            "sun.max.fill",
+            "moon.fill",
+            "cloud.fill",
+            "checkmark.seal.fill",
+            "xmark.seal.fill"
         ])
     ]
 
@@ -93,9 +85,9 @@ struct IconPickerSheet: View {
         Image(systemName: symbol)
             .resizable()
             .scaledToFit()
-            .frame(width: 22, height: 22)
+            .frame(width: 18, height: 18)
             .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-            .frame(width: 44, height: 44)
+            .frame(width: 32, height: 32)
             .overlay(
                 Circle().stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
             )
@@ -103,42 +95,45 @@ struct IconPickerSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            // Header
-            Text("Choose Icon")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Color choices row
-            HStack(spacing: 8) {
-                ForEach(FlagColor.allCases, id: \.self) { color in
-                    Circle()
-                        .fill(color.color)
-                        .frame(width: 18, height: 18)
-                        .overlay(
-                            Circle().stroke(Color.primary.opacity(selectedColor == color ? 0.6 : 0), lineWidth: 2)
-                        )
-                        .onTapGesture { selectedColor = color }
-                        .help(color.accessibilityName)
+        VStack(spacing: 10) {
+            // Color choices container at top
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                HStack(spacing: 10) {
+                    ForEach(FlagColor.allCases, id: \.self) { color in
+                        Circle()
+                            .fill(color.color)
+                            .frame(width: 20, height: 20)
+                            .overlay(
+                                Circle().stroke(Color.primary.opacity(selectedColor == color ? 0.7 : 0), lineWidth: 2)
+                            )
+                            .onTapGesture { selectedColor = color }
+                            .help(color.accessibilityName)
+                    }
                 }
+                .padding(.horizontal, 5)
+                .padding(.vertical, 4)
                 Spacer(minLength: 0)
             }
 
-            // Search field
-            TextField("Search symbols", text: $search)
-                .textFieldStyle(.roundedBorder)
+            // Hairline separator touching edges (no container)
+            Divider()
+                .padding(.horizontal, -12)
 
-            // Symbols grid
+            // Symbols (no search; show categories)
             ScrollView {
-                if search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    VStack(alignment: .leading, spacing: 16) {
-                        ForEach(categories, id: \.title) { category in
-                            if !category.symbols.isEmpty {
-                                Text(category.title)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal, 2)
-                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 12)], spacing: 12) {
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(categories, id: \.title) { category in
+                        if !category.symbols.isEmpty {
+                            // Category title with left padding
+                            Text(category.title)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 3)
+
+                            // Icons in a not-full-width container
+                            VStack(alignment: .leading, spacing: 8) {
+                                LazyVGrid(columns: Array(repeating: GridItem(.fixed(32), spacing: 8), count: 6), spacing: 8) {
                                     ForEach(category.symbols, id: \.self) { symbol in
                                         Button { selectedSymbol = symbol } label: {
                                             IconGridItem(symbol: symbol, isSelected: selectedSymbol == symbol)
@@ -148,32 +143,38 @@ struct IconPickerSheet: View {
                                     }
                                 }
                             }
-                        }
-                    }
-                } else {
-                    let all = categories.flatMap { $0.symbols }
-                    let filtered = all.filter { $0.localizedCaseInsensitiveContains(search) } + [search]
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 12)], spacing: 12) {
-                        ForEach(Array(Set(filtered)).sorted(), id: \.self) { symbol in
-                            Button { selectedSymbol = symbol } label: {
-                                IconGridItem(symbol: symbol, isSelected: selectedSymbol == symbol)
-                            }
-                            .buttonStyle(.plain)
-                            .help(symbol)
+                            .padding(4)
+                            .frame(maxWidth: 260, alignment: .leading)
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
             }
+            .padding(.horizontal, -12)
 
-            // Bottom bar
-            HStack {
+            // Hairline separator touching edges
+            Divider()
+                .padding(.horizontal, -12)
+
+            // Actions - rounded squares
+            HStack(spacing: 12) {
                 Button("No icon") { selectedSymbol = nil }
-                Spacer()
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.roundedRectangle(radius: 10))
+                    .controlSize(.regular)
+                    .frame(maxWidth: .infinity)
+
                 Button("Done") { isPresented = false }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.roundedRectangle(radius: 10))
+                    .controlSize(.regular)
+                    .frame(maxWidth: .infinity)
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
         }
-        .padding(16)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

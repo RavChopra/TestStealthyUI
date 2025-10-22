@@ -1,41 +1,53 @@
 import SwiftUI
 
-public struct ProjectEditorView: View {
-    public let modeTitle: String
-    public let primaryButtonTitle: String
-    public let initialTitle: String
-    public let initialDescription: String
-    public let initialTags: [String]
-    public let onCancel: () -> Void
-    public let onSave: (String, String, [String]) -> Void
+struct ProjectEditorView: View {
+    let modeTitle: String
+    let primaryButtonTitle: String
+    let initialTitle: String
+    let initialDescription: String
+    let initialTags: [String]
+    let initialIconSymbol: String?
+    let initialIconColor: FlagColor?
+    let onCancel: () -> Void
+    let onSave: (String, String, [String], String?, FlagColor?) -> Void
 
     @State private var title: String
     @State private var desc: String
     @State private var tags: [String]
     @State private var tagEntry: String = ""
+    @State private var selectedSymbol: String?
+    @State private var selectedColor: FlagColor?
+    @State private var showingIconPicker: Bool = false
+    @State private var symbolSearch: String = ""
 
-    public init(
+    init(
         modeTitle: String,
         primaryButtonTitle: String,
         initialTitle: String = "",
         initialDescription: String = "",
         initialTags: [String] = [],
+        initialIconSymbol: String? = "folder",
+        initialIconColor: FlagColor? = nil,
         onCancel: @escaping () -> Void,
-        onSave: @escaping (String, String, [String]) -> Void
+        onSave: @escaping (String, String, [String], String?, FlagColor?) -> Void
     ) {
         self.modeTitle = modeTitle
         self.primaryButtonTitle = primaryButtonTitle
         self.initialTitle = initialTitle
         self.initialDescription = initialDescription
         self.initialTags = initialTags
+        self.initialIconSymbol = initialIconSymbol
+        self.initialIconColor = initialIconColor
         self.onCancel = onCancel
         self.onSave = onSave
         _title = State(initialValue: initialTitle)
         _desc = State(initialValue: initialDescription)
         _tags = State(initialValue: initialTags)
+        _selectedSymbol = State(initialValue: initialIconSymbol)
+        _selectedColor = State(initialValue: initialIconColor)
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text(modeTitle).font(.largeTitle).bold()
 
@@ -49,10 +61,39 @@ public struct ProjectEditorView: View {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .fill(Color.secondary.opacity(0.08))
                         )
-                    TextField("Name your project", text: $title)
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
+                    HStack(spacing: 8) {
+                        Button {
+                            showingIconPicker = true
+                        } label: {
+                            if let symbol = selectedSymbol {
+                                Image(systemName: symbol)
+                                    .foregroundStyle((selectedColor ?? .gray).color)
+                                    .imageScale(.large)
+                                    .frame(width: 28, height: 28)
+                            } else {
+                                // Placeholder for no icon: show unfilled folder visually, but do not save unless selected
+                                Image(systemName: "folder")
+                                    .foregroundStyle(.secondary)
+                                    .imageScale(.large)
+                                    .frame(width: 28, height: 28)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .help("Choose icon")
+                        .popover(isPresented: $showingIconPicker, arrowEdge: .bottom) {
+                            IconPickerSheet(
+                                selectedSymbol: $selectedSymbol,
+                                selectedColor: $selectedColor,
+                                isPresented: $showingIconPicker
+                            )
+                            .frame(width: 284, height: 420)
+                        }
+
+                        TextField("Name your project", text: $title)
+                            .textFieldStyle(.plain)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
                 }
                 .frame(height: 44)
             }
@@ -144,7 +185,7 @@ public struct ProjectEditorView: View {
                     let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
                     let d = desc.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !t.isEmpty else { return }
-                    onSave(t, d, limited)
+                    onSave(t, d, limited, selectedSymbol, selectedColor)
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.return, modifiers: [])

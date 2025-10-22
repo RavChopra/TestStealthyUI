@@ -57,22 +57,34 @@ class AppStore: ObservableObject {
 
     // MARK: - Project Management
 
-    func createProject(title: String, description: String) -> UUID {
+    func createProject(title: String, description: String, iconSymbol: String? = "folder", iconColor: FlagColor? = nil) -> UUID {
         let newProject = Project(
             title: title,
             description: description,
             updatedAt: Date(),
-            conversations: []
+            conversations: [],
+            tags: [],
+            iconSymbol: iconSymbol,
+            iconColor: iconColor
         )
         projects.insert(newProject, at: 0)
         return newProject.id
     }
 
-    func updateProject(id: UUID, title: String, description: String) {
+    func updateProject(id: UUID, title: String, description: String, tags: [String] = [], iconSymbol: String? = nil, iconColor: FlagColor? = nil) {
         guard let idx = projects.firstIndex(where: { $0.id == id }) else { return }
         projects[idx].title = title
         projects[idx].description = description
         projects[idx].updatedAt = Date()
+        let cleaned = tags
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let limited = Array(cleaned.prefix(10))
+        projects[idx].tags = limited
+        if iconSymbol != nil || iconColor != nil {
+            projects[idx].iconSymbol = iconSymbol
+            projects[idx].iconColor = iconColor
+        }
     }
 
     func deleteProject(id: UUID) {
@@ -163,3 +175,4 @@ class AppStore: ObservableObject {
         projects[pIdx].updatedAt = Date()
     }
 }
+
