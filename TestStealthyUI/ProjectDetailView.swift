@@ -144,14 +144,14 @@ struct ProjectDetailView: View {
     @State private var newConversationTitle: String = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 0) {
             if activeConversationID == nil {
                 // Header
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
-                        Image(systemName: "folder.fill")
-                            .font(.system(size: 36, weight: .regular))
-                            .foregroundStyle(.primary)
+                        Image(systemName: project.iconSymbol ?? "folder.fill")
+                            .font(.system(size: 32, weight: .medium))
+                            .foregroundStyle(project.iconColor?.color ?? .primary)
                             .padding(.trailing, 6)
                         Text(project.title)
                             .font(.largeTitle).bold()
@@ -181,7 +181,14 @@ struct ProjectDetailView: View {
                         Text(project.description)
                             .foregroundStyle(.secondary)
                     }
+
+                    // Tags display
+                    if !project.tags.isEmpty {
+                        TagsFlowView(tags: project.tags)
+                            .padding(.top, 8)
+                    }
                 }
+                .padding(.bottom, 16)
 
                 // Conversations list within project
                 VStack(alignment: .leading, spacing: 12) {
@@ -249,7 +256,7 @@ struct ProjectDetailView: View {
                         }
                     }
                 }
-                Spacer(minLength: 0)
+                .frame(maxHeight: .infinity, alignment: .top)
             } else if let activeID = activeConversationID {
                 // Show chat for active conversation or draft placeholder
                 if let convo = project.conversations.first(where: { $0.id == activeID }) {
@@ -342,17 +349,6 @@ struct ProjectDetailView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(Color.clear)
-        }
-        .toolbar {
-            if activeConversationID != nil {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        activeConversationID = nil
-                    } label: {
-                        Label("Back", systemImage: "chevron.left")
-                    }
-                }
-            }
         }
         .alert("Delete Conversation?", isPresented: $showConversationDeleteConfirm) {
             Button("Cancel", role: .cancel) {

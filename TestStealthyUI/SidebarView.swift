@@ -82,14 +82,17 @@ struct SidebarView: View {
                         NavigationLink(value: SidebarSelection.projects) {
                             HStack(spacing: 6) {
                                 Image(systemName: "folder.fill")
-                                Text("Projects")
+                                    .frame(width: 20, alignment: .center)
+                                Text("All Projects")
                                     .padding(.horizontal, 8)
                             }
                         }
                         ForEach(flaggedProjects) { p in
                             NavigationLink(value: SidebarSelection.project(p.id)) {
                                 HStack(spacing: 6) {
-                                    Image(systemName: "folder")
+                                    Image(systemName: p.iconSymbol ?? "folder.fill")
+                                        .foregroundStyle(p.iconColor?.color ?? .primary)
+                                        .frame(width: 20, alignment: .center)
                                     Text(p.title)
                                         .padding(.horizontal, 8)
                                 }
@@ -98,7 +101,7 @@ struct SidebarView: View {
                                 Button {
                                     setFlag(nil, for: p.id)
                                 } label: {
-                                    Label("Unflag", systemImage: "flag")
+                                    Label("Unstar", systemImage: "star")
                                 }
                                 Button {
                                     pendingEditProjectID = p.id
@@ -249,3 +252,4 @@ struct SidebarView: View {
         projects.removeAll { $0.id == project.id }
     }
 }
+
