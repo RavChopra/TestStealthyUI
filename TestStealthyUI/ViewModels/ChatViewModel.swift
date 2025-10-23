@@ -33,6 +33,10 @@ class ChatViewModel: ObservableObject {
     @Published var renameTargetID: Conversation.ID?
     @Published var renameDraft: String = ""
 
+    // Conversation editing state
+    @Published var showConversationEditSheet: Bool = false
+    @Published var editingConversation: Conversation? = nil
+
     // Delete confirmation state
     @Published var showDeleteConfirm: Bool = false
     @Published var deleteTargetID: Conversation.ID?
@@ -251,6 +255,18 @@ class ChatViewModel: ObservableObject {
         saveConversations()
     }
 
+    // Update conversation properties (title, tags, icon, color)
+    func updateConversation(updated: Conversation) {
+        guard let idx = conversations.firstIndex(where: { $0.id == updated.id }) else { return }
+
+        conversations[idx].title = updated.title
+        conversations[idx].tags = updated.tags
+        conversations[idx].iconSymbol = updated.iconSymbol
+        conversations[idx].iconColor = updated.iconColor
+        conversations[idx].updatedAt = Date()
+        saveConversations()
+    }
+
     // MARK: - Archive Management (NEW)
 
     func archiveConversation(id: Conversation.ID) {
@@ -289,6 +305,31 @@ class ChatViewModel: ObservableObject {
         conversations[idx].flagColor = nil
         conversations[idx].updatedAt = Date()
         saveConversations()
+    }
+
+    // MARK: - Pinning
+
+    func togglePin(id: Conversation.ID) {
+        guard let idx = conversations.firstIndex(where: { $0.id == id }) else { return }
+        if conversations[idx].isPinned {
+            conversations[idx].isPinned = false
+            conversations[idx].pinnedAt = nil
+        } else {
+            conversations[idx].isPinned = true
+            conversations[idx].pinnedAt = Date()
+        }
+        conversations[idx].updatedAt = Date()
+        saveConversations()
+    }
+
+    var pinnedConversations: [Conversation] {
+        conversations
+            .filter { $0.isPinned }
+            .sorted { ($0.pinnedAt ?? .distantPast) > ($1.pinnedAt ?? .distantPast) }
+    }
+
+    var hasPinnedConversations: Bool {
+        !pinnedConversations.isEmpty
     }
 
     // MARK: - Delete Management

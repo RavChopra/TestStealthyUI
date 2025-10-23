@@ -58,11 +58,20 @@ private struct DetailView: View {
                 return AnyView(Text("Project not found"))
             }
         case .conversation(let id):
+            // First check ChatViewModel conversations
             if let conversation = viewModel.conversations.first(where: { $0.id == id }) {
                 return AnyView(ChatView(conversation: conversation))
-            } else {
-                return AnyView(Text("Conversation not found").foregroundStyle(.secondary))
             }
+
+            // Then check project conversations
+            for project in projects {
+                if let conversation = project.conversations.first(where: { $0.id == id }) {
+                    return AnyView(ChatView(conversation: conversation))
+                }
+            }
+
+            // Not found in either location
+            return AnyView(Text("Conversation not found").foregroundStyle(.secondary))
         }
     }
 }
@@ -168,6 +177,58 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSidebarEdit) {
             projectEditSheet
+        }
+        .sheet(isPresented: $viewModel.showConversationEditSheet, onDismiss: {
+            viewModel.editingConversation = nil
+        }) {
+            if let conversation = viewModel.editingConversation {
+                ConversationEditorView(
+                    initialTitle: conversation.title,
+                    initialTags: conversation.tags,
+                    initialIconSymbol: conversation.iconSymbol,
+                    initialIconColor: conversation.iconColor,
+                    onCancel: {
+                        viewModel.showConversationEditSheet = false
+                        viewModel.editingConversation = nil
+                    },
+                    onSave: { title, tags, symbol, color in
+                        var updated = conversation
+                        updated.title = title
+                        updated.tags = tags
+                        updated.iconSymbol = symbol
+                        updated.iconColor = color
+                        viewModel.updateConversation(updated: updated)
+                        viewModel.showConversationEditSheet = false
+                        viewModel.editingConversation = nil
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $appStore.showConversationEditSheet, onDismiss: {
+            appStore.editingConversation = nil
+        }) {
+            if let conversation = appStore.editingConversation {
+                ConversationEditorView(
+                    initialTitle: conversation.title,
+                    initialTags: conversation.tags,
+                    initialIconSymbol: conversation.iconSymbol,
+                    initialIconColor: conversation.iconColor,
+                    onCancel: {
+                        appStore.showConversationEditSheet = false
+                        appStore.editingConversation = nil
+                    },
+                    onSave: { title, tags, symbol, color in
+                        var updated = conversation
+                        updated.title = title
+                        updated.tags = tags
+                        updated.iconSymbol = symbol
+                        updated.iconColor = color
+                        appStore.updateConversation(updated)
+                        appStore.showConversationEditSheet = false
+                        appStore.editingConversation = nil
+                    }
+                )
+            }
         }
         .alert("Delete Conversation?", isPresented: $viewModel.showDeleteConfirm) {
             Button("Cancel", role: .cancel) {
@@ -302,4 +363,3 @@ struct ContentView: View {
         .environmentObject(ChatViewModel())
         .environmentObject(AppStore())
 }
-

@@ -114,8 +114,18 @@ struct ChatView: View {
         VStack(spacing: 0) {
             // Show placeholder for draft, messages for existing conversation
             if let conversation = conversation {
-                ChatMessagesList(messages: conversation.messages)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                VStack(spacing: 0) {
+                    if !conversation.tags.isEmpty {
+                        TagsFlowView(tags: conversation.tags)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 16)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    ChatMessagesList(messages: conversation.messages)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
             } else if viewModel.isViewingDraft {
                 // Draft mode - show placeholder
                 ChatPlaceholder()

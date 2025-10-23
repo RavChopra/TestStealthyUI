@@ -17,6 +17,10 @@ class AppStore: ObservableObject {
         }
     }
 
+    // Conversation editing state
+    @Published var showConversationEditSheet: Bool = false
+    @Published var editingConversation: Conversation? = nil
+
     init() {
         // Load projects from disk
         let loaded = ProjectStore.load()
@@ -174,5 +178,55 @@ class AppStore: ObservableObject {
         projects[pIdx].conversations[cIdx].updatedAt = Date()
         projects[pIdx].updatedAt = Date()
     }
-}
 
+    // MARK: - Pinning Management
+
+    /// Get all pinned conversations across all projects with their project IDs
+    var pinnedConversationsWithProjects: [(projectID: UUID, conversation: Conversation)] {
+        var result: [(UUID, Conversation)] = []
+        for project in projects {
+            for conversation in project.conversations where conversation.isPinned {
+                result.append((project.id, conversation))
+            }
+        }
+        return result.sorted { ($0.1.pinnedAt ?? .distantPast) > ($1.1.pinnedAt ?? .distantPast) }
+    }
+
+    /// Check if there are any pinned conversations
+    var hasPinnedConversations: Bool {
+        projects.contains { project in
+            project.conversations.contains { $0.isPinned }
+        }
+    }
+
+    /// Toggle pin state for a conversation
+    func togglePin(projectID: UUID, conversationID: UUID) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectID }),
+              let cIdx = projects[pIdx].conversations.firstIndex(where: { $0.id == conversationID }) else { return }
+
+        if projects[pIdx].conversations[cIdx].isPinned {
+            projects[pIdx].conversations[cIdx].isPinned = false
+            projects[pIdx].conversations[cIdx].pinnedAt = nil
+        } else {
+            projects[pIdx].conversations[cIdx].isPinned = true
+            projects[pIdx].conversations[cIdx].pinnedAt = Date()
+        }
+        projects[pIdx].conversations[cIdx].updatedAt = Date()
+        projects[pIdx].updatedAt = Date()
+    }
+
+    // MARK: - Conversation Editing
+
+    /// Update a conversation's properties (title, tags, icon, color)
+    func updateConversation(_ updated: Conversation) {
+        for pIdx in projects.indices {
+            if let cIdx = projects[pIdx].conversations.firstIndex(where: { $0.id == updated.id }) {
+                projects[pIdx].conversations[cIdx] = updated
+                projects[pIdx].conversations[cIdx].updatedAt = Date()
+                projects[pIdx].updatedAt = Date()
+                saveProjects()
+                return
+            }
+        }
+    }
+}

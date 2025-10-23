@@ -205,11 +205,27 @@ struct ProjectDetailView: View {
                         LazyVStack(alignment: .leading, spacing: 8) {
                             ForEach(visibleConvos) { convo in
                                 HStack(alignment: .top, spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(convo.title)
-                                            .font(.body)
-                                            .lineLimit(1)
-                                            .truncationMode(.tail)
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack(spacing: 8) {
+                                            if let symbol = convo.iconSymbol {
+                                                Image(systemName: symbol)
+                                                    .symbolRenderingMode(.hierarchical)
+                                                    .foregroundStyle(convo.iconColor?.color ?? .secondary)
+                                                    .frame(width: 18, height: 18)
+                                            }
+
+                                            Text(convo.title)
+                                                .font(.body)
+                                                .lineLimit(1)
+                                                .truncationMode(.tail)
+                                        }
+
+                                        if !convo.tags.isEmpty {
+                                            TagsFlowView(tags: convo.tags)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .padding(.top, 2)
+                                        }
+
                                         Text("Updated \(relativeDate(convo.updatedAt))")
                                             .font(.footnote)
                                             .foregroundStyle(.secondary)
@@ -217,9 +233,12 @@ struct ProjectDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
 
                                     Menu {
-                                        Button("Rename") {
-                                            // Prompt rename via alert for now
-                                            promptRename(conversationID: convo.id)
+                                        Button(convo.isPinned ? "Unpin" : "Pin") {
+                                            appStore.togglePin(projectID: project.id, conversationID: convo.id)
+                                        }
+                                        Button("Edit") {
+                                            appStore.editingConversation = convo
+                                            appStore.showConversationEditSheet = true
                                         }
                                         Button(convo.isArchived ? "Unarchive" : "Archive") {
                                             if convo.isArchived {
@@ -260,8 +279,18 @@ struct ProjectDetailView: View {
             } else if let activeID = activeConversationID {
                 // Show chat for active conversation or draft placeholder
                 if let convo = project.conversations.first(where: { $0.id == activeID }) {
-                    ChatMessagesList(messages: convo.messages)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    VStack(spacing: 0) {
+                        if !convo.tags.isEmpty {
+                            TagsFlowView(tags: convo.tags)
+                                .padding(.horizontal, 16)
+                                .padding(.top, 16)
+                                .padding(.bottom, 8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        ChatMessagesList(messages: convo.messages)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    }
                 } else {
                     // Draft mode - conversation not created yet, show placeholder
                     ProjectDraftPlaceholder()
@@ -459,26 +488,9 @@ struct ProjectDetailView: View {
         }
     }
 
-    private func promptRename(conversationID: UUID) {
-        #if os(macOS)
-        let alert = NSAlert()
-        alert.messageText = "Rename Conversation"
-        alert.informativeText = "Enter a new title for the conversation."
-        let inputField = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
-        alert.accessoryView = inputField
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Cancel")
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            appStore.renameConversation(projectID: project.id, conversationID: conversationID, to: inputField.stringValue)
-        }
-        #endif
-    }
-    
     private func relativeDate(_ date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
-

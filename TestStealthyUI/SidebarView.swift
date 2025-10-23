@@ -9,31 +9,19 @@ import SwiftUI
 
 struct SidebarView: View {
     @EnvironmentObject var viewModel: ChatViewModel
+    @EnvironmentObject var appStore: AppStore
     @Binding var projects: [Project]
     @Binding var pendingEditProjectID: UUID?
     @Binding var selection: SidebarSelection?
 
     @State private var searchText: String = ""
-    @State private var editingConversationID: UUID? = nil
-    @State private var draftTitle: String = ""
-    @FocusState private var renameFocusID: UUID?
-
     @State private var showProjectDeleteConfirm: Bool = false
     @State private var deleteTargetProjectID: UUID? = nil
+    @State private var showAllPinned: Bool = false
 
     private var visibleConversations: [Conversation] {
-        viewModel.conversations.filter { !$0.isArchived }
-    }
-
-    private var flaggedConversations: [Conversation] {
-        visibleConversations
-            .filter { $0.flaggedAt != nil }
-            .sorted { ($0.flaggedAt ?? .distantPast) > ($1.flaggedAt ?? .distantPast) }
-    }
-
-    private var unflaggedConversations: [Conversation] {
-        visibleConversations
-            .filter { $0.flaggedAt == nil }
+        viewModel.conversations
+            .filter { !$0.isArchived && !$0.isPinned }  // Exclude archived AND pinned
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
@@ -46,7 +34,53 @@ struct SidebarView: View {
     private var filteredConversations: [Conversation] {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return visibleConversations }
-        return visibleConversations.filter { $0.title.localizedCaseInsensitiveContains(q) }
+        return viewModel.conversations
+            .filter { !$0.isArchived && !$0.isPinned && $0.title.localizedCaseInsensitiveContains(q) }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    // Combined pinned conversations from all sources
+    private struct PinnedItem: Identifiable {
+        let id: UUID
+        let conversation: Conversation
+        let projectID: UUID?  // nil for ChatViewModel conversations
+        let source: Source
+
+        enum Source {
+            case chatViewModel
+            case project
+        }
+    }
+
+    private var allPinnedConversations: [PinnedItem] {
+        var items: [PinnedItem] = []
+
+        // Add pinned conversations from ChatViewModel
+        for conversation in viewModel.pinnedConversations {
+            items.append(PinnedItem(
+                id: conversation.id,
+                conversation: conversation,
+                projectID: nil,
+                source: .chatViewModel
+            ))
+        }
+
+        // Add pinned conversations from projects
+        for (projectID, conversation) in appStore.pinnedConversationsWithProjects {
+            items.append(PinnedItem(
+                id: conversation.id,
+                conversation: conversation,
+                projectID: projectID,
+                source: .project
+            ))
+        }
+
+        // Sort by pinnedAt date
+        return items.sorted { ($0.conversation.pinnedAt ?? .distantPast) > ($1.conversation.pinnedAt ?? .distantPast) }
+    }
+
+    private var hasAnyPinnedConversations: Bool {
+        viewModel.hasPinnedConversations || appStore.hasPinnedConversations
     }
 
     var body: some View {
@@ -119,16 +153,39 @@ struct SidebarView: View {
                         }
                     }
 
-                    Section("Conversations") {
-                        // Flagged conversations first
-                        if !flaggedConversations.isEmpty && searchText.isEmpty {
-                            ForEach(flaggedConversations) { conversation in
-                                conversationLink(conversation)
+                    // Pinned Conversations section (only show if there are pinned items)
+                    if hasAnyPinnedConversations {
+                        Section("Pinned Conversations") {
+                            let pinnedItems = allPinnedConversations
+                            let displayItems = showAllPinned ? pinnedItems : Array(pinnedItems.prefix(5))
+
+                            ForEach(displayItems) { item in
+                                pinnedConversationLink(item: item)
+                            }
+
+                            // Show "See more" or "See less" if there are more than 5 items
+                            if pinnedItems.count > 5 {
+                                Button(action: {
+                                    showAllPinned.toggle()
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: showAllPinned ? "chevron.up" : "chevron.down")
+                                            .foregroundStyle(.secondary)
+                                            .imageScale(.small)
+                                            .frame(width: 20, alignment: .center)
+                                        Text(showAllPinned ? "See less" : "See more (\(pinnedItems.count - 5))")
+                                            .foregroundStyle(.secondary)
+                                            .padding(.horizontal, 8)
+                                    }
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
+                    }
 
-                        // Unflagged or filtered conversations
-                        ForEach(searchText.isEmpty ? unflaggedConversations : filteredConversations) { conversation in
+                    Section("Conversations") {
+                        // Show all non-pinned conversations (filtered by search if applicable)
+                        ForEach(searchText.isEmpty ? visibleConversations : filteredConversations) { conversation in
                             conversationLink(conversation)
                         }
                     }
@@ -156,47 +213,33 @@ struct SidebarView: View {
         }
     }
 
-    // MARK: - Conversation Link
+    // MARK: - Conversation Link (for ChatViewModel conversations)
     @ViewBuilder
     private func conversationLink(_ conversation: Conversation) -> some View {
         NavigationLink(value: SidebarSelection.conversation(conversation.id)) {
             HStack(spacing: 6) {
-                if conversation.flaggedAt != nil {
-                    Image(systemName: "flag.fill")
-                        .foregroundStyle((conversation.flagColor ?? .orange).color)
-                        .imageScale(.small)
+                if let symbol = conversation.iconSymbol {
+                    Image(systemName: symbol)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(conversation.iconColor?.color ?? .secondary)
+                        .frame(width: 18, height: 18)
                 }
-                if editingConversationID == conversation.id {
-                    TextField("Title", text: $draftTitle)
-                        .textFieldStyle(.plain)
-                        .onSubmit { commitRename(conversation: conversation) }
-                        .onExitCommand { cancelRename() }
-                        .focused($renameFocusID, equals: conversation.id)
-                        .padding(.horizontal, 8)
-                } else {
-                    Text(conversation.title)
-                        .padding(.horizontal, 8)
-                }
+                Text(conversation.title)
+                    .padding(.horizontal, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .contextMenu {
-            // Flag / Unflag first (no icons)
-            if conversation.flaggedAt == nil {
-                Menu("Flag") {
-                    ForEach(FlagColor.allCases, id: \.self) { color in
-                        Button(color.accessibilityName) {
-                            viewModel.flagConversation(id: conversation.id, color: color)
-                        }
-                    }
-                }
-            } else {
-                Button("Unflag") {
-                    viewModel.unflagConversation(id: conversation.id)
-                }
+            // Pin / Unpin first
+            Button(conversation.isPinned ? "Unpin" : "Pin") {
+                viewModel.togglePin(id: conversation.id)
             }
 
-            // Rename
-            Button("Rename") { beginRename(conversation) }
+            // Edit
+            Button("Edit") {
+                viewModel.editingConversation = conversation
+                viewModel.showConversationEditSheet = true
+            }
 
             // Archive
             Button("Archive") { archiveConversation(conversation) }
@@ -211,31 +254,79 @@ struct SidebarView: View {
         }
     }
 
-    // MARK: - Actions
+    // MARK: - Pinned Conversation Link (for all pinned conversations)
+    @ViewBuilder
+    private func pinnedConversationLink(item: PinnedItem) -> some View {
+        NavigationLink(value: SidebarSelection.conversation(item.conversation.id)) {
+            HStack(spacing: 6) {
+                if let symbol = item.conversation.iconSymbol {
+                    Image(systemName: symbol)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(item.conversation.iconColor?.color ?? .secondary)
+                        .frame(width: 18, height: 18)
+                }
+                Text(item.conversation.title)
+                    .padding(.horizontal, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .contextMenu {
+            // Unpin
+            Button("Unpin") {
+                switch item.source {
+                case .chatViewModel:
+                    viewModel.togglePin(id: item.conversation.id)
+                case .project:
+                    if let projectID = item.projectID {
+                        appStore.togglePin(projectID: projectID, conversationID: item.conversation.id)
+                    }
+                }
+            }
 
-    private func beginRename(_ conversation: Conversation) {
-        editingConversationID = conversation.id
-        draftTitle = conversation.title
-        DispatchQueue.main.async {
-            renameFocusID = conversation.id
+            // Edit
+            Button("Edit") {
+                switch item.source {
+                case .chatViewModel:
+                    viewModel.editingConversation = item.conversation
+                    viewModel.showConversationEditSheet = true
+                case .project:
+                    if item.projectID != nil {
+                        appStore.editingConversation = item.conversation
+                        appStore.showConversationEditSheet = true
+                    }
+                }
+            }
+
+            // Archive
+            Button("Archive") {
+                switch item.source {
+                case .chatViewModel:
+                    viewModel.archiveConversation(id: item.conversation.id)
+                case .project:
+                    if let projectID = item.projectID {
+                        appStore.archiveConversation(projectID: projectID, conversationID: item.conversation.id)
+                    }
+                }
+            }
+
+            // Separator
+            Divider()
+
+            // Delete (destructive)
+            Button("Delete", role: .destructive) {
+                switch item.source {
+                case .chatViewModel:
+                    viewModel.requestDelete(id: item.conversation.id)
+                case .project:
+                    if let projectID = item.projectID {
+                        appStore.deleteConversation(projectID: projectID, conversationID: item.conversation.id)
+                    }
+                }
+            }
         }
     }
 
-    private func commitRename(conversation: Conversation) {
-        let newTitle = draftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !newTitle.isEmpty else { cancelRename(); return }
-
-        viewModel.renameConversation(id: conversation.id, to: newTitle)
-        renameFocusID = nil
-        editingConversationID = nil
-        draftTitle = ""
-    }
-
-    private func cancelRename() {
-        renameFocusID = nil
-        editingConversationID = nil
-        draftTitle = ""
-    }
+    // MARK: - Actions
 
     private func archiveConversation(_ conversation: Conversation) {
         viewModel.archiveConversation(id: conversation.id)
@@ -252,4 +343,3 @@ struct SidebarView: View {
         projects.removeAll { $0.id == project.id }
     }
 }
-
